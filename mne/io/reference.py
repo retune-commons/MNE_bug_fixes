@@ -418,7 +418,8 @@ def _get_ch_type(inst, ch_type):
 
 @verbose
 def set_bipolar_reference(inst, anode, cathode, ch_name=None, ch_info=None,
-                          drop_refs=True, copy=True, verbose=None):
+                          drop_refs=True, annotate_bads=False, copy=True,
+                          verbose=None):
     """Re-reference selected channels using a bipolar referencing scheme.
 
     A bipolar reference takes the difference between two channels (the anode
@@ -451,6 +452,9 @@ def set_bipolar_reference(inst, anode, cathode, ch_name=None, ch_info=None,
         overwriting the default values. Defaults to None.
     drop_refs : bool
         Whether to drop the anode/cathode channels from the instance.
+    annotate_bads : bool
+        If True, annotate bipolar channels as bad if their anode or cathode
+        was marked as bad. Defaults to False.
     copy : bool
         Whether to operate on a copy of the data (True) or modify it in-place
         (False). Defaults to True.
@@ -550,6 +554,7 @@ def set_bipolar_reference(inst, anode, cathode, ch_name=None, ch_info=None,
     # Set other info-keys from original instance.
     pick_info = {k: v for k, v in inst.info.items() if k not in
                  ['chs', 'ch_names', 'bads', 'nchan', 'sfreq']}
+
     with ref_info._unlock():
         ref_info.update(pick_info)
 
@@ -570,6 +575,12 @@ def set_bipolar_reference(inst, anode, cathode, ch_name=None, ch_info=None,
 
     # Add referenced instance to original instance.
     inst.add_channels([ref_inst], force_update_info=True)
+
+    # Handle bad channels.
+    if annotate_bads:
+        for ch_idx, (a, c) in enumerate(zip(anode, cathode)):
+            if a in inst.info['bads'] or c in inst.info['bads']:
+                inst.info['bads'].append(ch_name[ch_idx])
 
     added_channels = ', '.join([name for name in ch_name])
     logger.info(f'Added the following bipolar channels:\n{added_channels}')
